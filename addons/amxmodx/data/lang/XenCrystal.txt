@@ -1,0 +1,89 @@
+[en] -- RedSMURF
+CRYSTAL_CHAT_TAG                            = ^4[XEN CRYSTAL]^1
+CRYSTAL_CHAT_LIMIT                          = You've reached the maximum number of Crystals ^4%d
+CRYSTAL_CHAT_NO_CRYSTAL                     = There are no Crystals available
+CRYSTAL_CHAT_CREATE_NEW                     = ^3%s ^1created
+CRYSTAL_CHAT_REMOVE_CURRENT                 = ^3%s ^1removed
+CRYSTAL_CHAT_REMOVE_ALL                     = All Crystals removed
+CRYSTAL_CHAT_SAVE                           = Crystal data saved in ^4%s
+CRYSTAL_CHAT_SHOW_CURRENT                   = ^3%s ^1is %L
+CRYSTAL_CHAT_SHOW_ALL_SHOWN                 = All Crystals are now Shown
+CRYSTAL_CHAT_SHOW_ALL_HIDDEN                = All Crystals are now Hidden
+CRYSTAL_CHAT_STATUS_CURRENT                 = ^3%s ^1is %L
+CRYSTAL_CHAT_STATUS_ALL_ENABLED             = All Crystals are now Enabled
+CRYSTAL_CHAT_STATUS_ALL_DISABLED            = All Crystals are now Disabled
+
+CRYSTAL_CHAT_SHOWN                          = Shown
+CRYSTAL_CHAT_HIDDEN                         = Hidden
+CRYSTAL_CHAT_ENABLED                        = Enabled
+CRYSTAL_CHAT_DISABLED                       = Disabled
+
+CRYSTAL_NAV_NEXT                            = Next
+CRYSTAL_NAV_BACK                            = Back
+CRYSTAL_ON                                  = \y[ON]
+CRYSTAL_OFF                                 = \r[OFF]
+CRYSTAL_SHOWN                               = \y[SHOWN]
+CRYSTAL_HIDDEN                              = \r[HIDDEN]
+CRYSTAL_ENABLED                             = \y[ENABLED]
+CRYSTAL_DISABLED                            = \r[DISABLED]
+CRYSTAL_ROTATE_PITCH                        = \r[PITCH]
+CRYSTAL_ROTATE_YAW                          = \y[YAW]
+CRYSTAL_ROTATE_ROLL                         = \d[ROLL]
+CRYSTAL_ROTATE_NORMAL                       = \d[NORMAL]
+CRYSTAL_ROTATE_LARGE                        = \d[LARGE]
+CRYSTAL_ROTATE_SHAPE_1                      = \d[SHAPE 1]
+CRYSTAL_ROTATE_SHAPE_2                      = \d[SHAPE 2]
+CRYSTAL_ROTATE_SHAPE_3                      = \d[SHAPE 3]
+CRYSTAL_COLOR_WHITE                         = \y[WHITE]
+CRYSTAL_COLOR_RED                           = \y[RED]
+CRYSTAL_COLOR_GREEN                         = \y[GREEN]
+CRYSTAL_COLOR_BLUE                          = \y[BLUE]
+CRYSTAL_COLOR_CYAN                          = \y[CYAN]
+CRYSTAL_COLOR_YELLOW                        = \y[YELLOW]
+CRYSTAL_COLOR_MAGENTA                       = \y[MAGENTA]
+CRYSTAL_COLOR_ORANGE                        = \y[ORANGE]
+CRYSTAL_COLOR_PURPLE                        = \y[PURPLE]
+CRYSTAL_COLOR_PINK                          = \y[PINK]
+CRYSTAL_COLOR_AQUA                          = \y[AQUA]
+CRYSTAL_COLOR_WARM                          = \y[WARM]
+
+CRYSTAL_MENU_TITLE                          = \dXen Crystal - Version \y%s
+CRYSTAL_MENU_TITLE_PAGE                     = \yPage:\r
+CRYSTAL_ROOT_CREATE                         = Create Crystal
+CRYSTAL_ROOT_EDIT                           = Edit Crystal
+CRYSTAL_ROOT_REMOVE                         = Remove Crystal
+CRYSTAL_ROOT_SAVE                           = Save Data
+CRYSTAL_ROOT_SHOW                           = Visibility Settings
+CRYSTAL_ROOT_STATUS                         = Status Settings
+CRYSTAL_ROOT_NOCLIP                         = Status Noclip %L
+CRYSTAL_ROOT_GODMODE                        = Status Godmode %L
+CRYSTAL_ROOT_ROTATE                         = Adjust Rotation
+CRYSTAL_ROOT_LIGHT                          = Adjust Light
+
+CRYSTAL_EDIT_SHOW                           = Edit Visibility
+CRYSTAL_EDIT_STATUS                         = Edit Status
+
+CRYSTAL_REMOVE_CURRENT                      = Remove Crystal >> \y%s
+CRYSTAL_REMOVE_ALL                          = Remove all Crystals
+
+CRYSTAL_SHOW_CURRENT                        = Show Crystal >> %s%s %L
+CRYSTAL_SHOW_ALL_SHOW                       = Show all Crystals
+CRYSTAL_SHOW_ALL_HIDE                       = Hide all Crystals
+
+CRYSTAL_STATUS_CURRENT                      = Enable Crystal >> %s%s %L
+CRYSTAL_STATUS_ALL_ENABLE                   = Enable all Crystals
+CRYSTAL_STATUS_ALL_DISABLE                  = Disable all Crystals
+
+CRYSTAL_ROTATE_UP                           = Turn Up
+CRYSTAL_ROTATE_DOWN                         = Turn Down
+CRYSTAL_ROTATE_GROUND                       = Set on ground >> %L
+CRYSTAL_ROTATE_MODE                         = Rotate Mode >> %L
+CRYSTAL_ROTATE_SIZE                         = Rotate Size >> %L
+CRYSTAL_ROTATE_SHAPE                        = Rotate Shape >> %L
+CRYSTAL_ROTATE_PLACE                        = Place Crystal
+
+CRYSTAL_LIGHT_SCALE_UP                      = Scale Up
+CRYSTAL_LIGHT_SCALE_DOWN                    = Scale Down
+CRYSTAL_LIGHT_FACTOR                        = Scale Factor >> \r%d
+CRYSTAL_LIGHT_COLOR                         = Color >> %L
+CRYSTAL_LIGHT_PLACE                         = Place Crystal
