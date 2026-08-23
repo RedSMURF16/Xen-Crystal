@@ -50,16 +50,17 @@
     #define MAX_PLATFORM_PATH_LENGTH 256
 #endif
 
-#define MAX_ENT                 32
-#define CRYSTAL_KEY               908070
-#define CRYSTAL_ARRAY_ITEM        pev_iuser1
-#define CRYSTAL_DLIGHT_SCALE_MAX  100
-#define CRYSTAL_DLIGHT_SCALE_MIN  1
+#define MAX_ENT                     32
+#define CRYSTAL_KEY                 908070
+#define CRYSTAL_ARRAY_ITEM          pev_iuser1
+#define CRYSTAL_DLIGHT_SCALE_MAX    100
+#define CRYSTAL_DLIGHT_SCALE_MIN    1
 
 new const PLUGIN_VERSION[]          = "1.0"
 new const Float:DELAY_ON_CONNECT    = 1.0
 new const Float:DELAY_ON_LOAD       = 1.0
 new const ERROR_FILE[]              = "XenCrystal_ERRORS.log"
+new const ADMIN_ACCESS              = ADMIN_RCON
 
 enum
 {
@@ -163,7 +164,6 @@ enum _:MAIN_SETTINGS
     Float:SETTING_MAXS_LARGE[3],
 
     bool:SETTING_CRYSTAL_LOAD,
-    Float:SETTING_CRYSTAL_RANGE,
     Float:SETTING_CRYSTAL_CHECK,
     Float:SETTING_CRYSTAL_TASK,
     Float:SETTING_OFFSET_BASE,
@@ -374,12 +374,12 @@ public plugin_init()
 {
     register_plugin("Xen Crystal", PLUGIN_VERSION, "RedSMURF")
 
-    register_clcmd("say /xc",               "cmdMenu", ADMIN_RCON, "-- Opens the Xen Crystal menu.")
-    register_clcmd("say_team /xc",          "cmdMenu", ADMIN_RCON, "-- Opens the Xen Crystal menu.")
-    register_clcmd("say /xencrystal",       "cmdMenu", ADMIN_RCON, "-- Opens the Xen Crystal menu.")
-    register_clcmd("say_team /xencrystal",  "cmdMenu", ADMIN_RCON, "-- Opens the Xen Crystal menu.")
-    register_concmd("xc_reload",            "cmdReload", ADMIN_RCON, "-- Reloads the configuration file")
-    register_concmd("xencrystal_reload",    "cmdReload", ADMIN_RCON, "-- Reloads the configuration file")
+    register_clcmd("say /xc",               "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
+    register_clcmd("say_team /xc",          "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
+    register_clcmd("say /xencrystal",       "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
+    register_clcmd("say_team /xencrystal",  "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
+    register_concmd("xc_reload",            "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
+    register_concmd("xencrystal_reload",    "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
 
     register_dictionary("XenCrystal.txt")
 
@@ -718,9 +718,10 @@ stock crystalMenu(id, iType)
     if ( !is_user_connected(id) )
         return PLUGIN_HANDLED
 
-    new szData[64], iMenu
+    new szData[256], iMenu
     formatex(szData, charsmax(szData), "%L", id, "CRYSTAL_MENU_TITLE", PLUGIN_VERSION)
     iMenu = menu_create(szData, g_szMenuHandler[iType])
+
     switch( iType )
     {
         case MENU_ROOT:   { menuRoot(id, iMenu); }
@@ -2226,8 +2227,8 @@ stock crystalSelect(eCrystal[CRYSTAL], iAction)
     iRenderFx = kRenderFxNone
     if ( iAction == TARGET_SELECT )
     {
-        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )    { iRenderColor[0] = g_eSettings[SETTING_COLOR_ACTIVE][0];      iRenderColor[1] = g_eSettings[SETTING_COLOR_ACTIVE][1];     iRenderColor[2] = g_eSettings[SETTING_COLOR_ACTIVE][2]; }
-        else                                        { iRenderColor[0] = g_eSettings[SETTING_COLOR_INACTIVE][0];    iRenderColor[1] = g_eSettings[SETTING_COLOR_INACTIVE][1];   iRenderColor[2] = g_eSettings[SETTING_COLOR_INACTIVE][2]; }
+        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )    { iRenderColor[0] = g_eSettings[SETTING_COLOR_ACTIVE][0];   iRenderColor[1] = g_eSettings[SETTING_COLOR_ACTIVE][1];     iRenderColor[2] = g_eSettings[SETTING_COLOR_ACTIVE][2]; }
+        else                                            { iRenderColor[0] = g_eSettings[SETTING_COLOR_INACTIVE][0]; iRenderColor[1] = g_eSettings[SETTING_COLOR_INACTIVE][1];   iRenderColor[2] = g_eSettings[SETTING_COLOR_INACTIVE][2]; }
 
         iRender = kRenderTransColor
         iRenderFx = kRenderFxGlowShell
