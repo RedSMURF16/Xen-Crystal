@@ -51,16 +51,19 @@
 #endif
 
 #define MAX_ENT                     32
+#define ADMIN_ACCESS                ADMIN_RCON
 #define CRYSTAL_KEY                 908070
 #define CRYSTAL_ARRAY_ITEM          pev_iuser1
 #define CRYSTAL_DLIGHT_SCALE_MAX    100
 #define CRYSTAL_DLIGHT_SCALE_MIN    1
+#define SOUND_NAV                   "buttons/blip1.wav"
+#define SOUND_REMOVE                "buttons/button10.wav"
+#define SOUND_ALERT                 "buttons/bell1.wav"
 
 new const PLUGIN_VERSION[]          = "1.0"
 new const Float:DELAY_ON_CONNECT    = 1.0
 new const Float:DELAY_ON_LOAD       = 1.0
 new const ERROR_FILE[]              = "XenCrystal_ERRORS.log"
-new const ADMIN_ACCESS              = ADMIN_RCON
 
 enum
 {
@@ -171,13 +174,7 @@ enum _:MAIN_SETTINGS
     Float:SETTING_OFFSET_STEP,
     SETTING_GHOST_ALPHA,
     Float:SETTING_ROTATION_STEP,
-    SETTING_CRYSTAL_LIFE,
-
-    SETTING_SOUND_MENU_NAV[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_SOUND_MENU_REMOVE[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_SOUND_MENU_ALERT[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_COLOR_ACTIVE[3],
-    SETTING_COLOR_INACTIVE[3]
+    SETTING_CRYSTAL_LIFE
 }
 
 enum _:CRYSTAL
@@ -221,8 +218,8 @@ enum _:PLAYER_DATA
     PDATA_ROTATE_MODE,
     PDATA_ROTATE_SIZE,
     PDATA_ROTATE_SHAPE,
-    PDATA_CRYSTAL_FACTOR,
-    PDATA_CRYSTAL_COLOR,
+    PDATA_LIGHT_FACTOR,
+    PDATA_LIGHT_COLOR,
     Float:PDATA_OFFSET,
     Float:PDATA_NEXT_OFFSET,
 
@@ -308,12 +305,12 @@ enum
 
 enum
 {
-    CRYSTAL_SCALE_UP,
-    CRYSTAL_SCALE_DOWN,
+    LIGHT_SCALE_UP,
+    LIGHT_SCALE_DOWN,
 
-    CRYSTAL_FACTOR = 3,
-    CRYSTAL_COLOR,
-    CRYSTAL_PLACE
+    LIGHT_FACTOR = 3,
+    LIGHT_COLOR,
+    LIGHT_PLACE
 }
 
 new Float:g_fDirections[][] =
@@ -338,7 +335,7 @@ new g_szMenuHandler[][MAX_VALUE_LENGTH] =
     "menuHandlerLight"
 }
 
-new g_szCN[] = "xencrystal"
+new g_szCN[] = "xen_crystal"
 
 new Array:g_aCrystal,
     Array:g_aCrystalConfig,
@@ -349,6 +346,8 @@ new Array:g_aCrystal,
     g_iCrystal, g_iCrystalConfig,
     g_iMaxPlayers
 
+new const g_iColorActive[] = { 0, 255, 0 }
+new const g_iColorInactive[] = { 255, 0, 0 }
 new g_szRotateMode[][] = {"CRYSTAL_ROTATE_PITCH", "CRYSTAL_ROTATE_YAW", "CRYSTAL_ROTATE_ROLL"}
 new g_szRotateSize[][] = {"CRYSTAL_ROTATE_NORMAL", "CRYSTAL_ROTATE_LARGE"}
 new g_szRotateShape[][] = {"CRYSTAL_ROTATE_SHAPE_1", "CRYSTAL_ROTATE_SHAPE_2", "CRYSTAL_ROTATE_SHAPE_3"}
@@ -373,24 +372,22 @@ new const g_iCrystalColors[][3] =
 public plugin_init()
 {
     register_plugin("Xen Crystal", PLUGIN_VERSION, "RedSMURF")
+    register_cvar("RedSMURF_XenCrystal", PLUGIN_VERSION, ADMIN_ACCESS)
 
     register_clcmd("say /xc",               "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
     register_clcmd("say_team /xc",          "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
     register_clcmd("say /xencrystal",       "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
     register_clcmd("say_team /xencrystal",  "cmdMenu", ADMIN_ACCESS, "-- Opens the Xen Crystal menu.")
-    register_concmd("xc_reload",            "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
-    register_concmd("xencrystal_reload",    "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
-
+    register_concmd("xc_reload",          "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
+    register_concmd("xencrystal_reload",  "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
     register_dictionary("XenCrystal.txt")
 
     g_iFwdUpdateClientData = register_forward(FM_UpdateClientData, "fwdUpdateClientData", 1)
     g_iFwdSpawn = RegisterHam(Ham_Spawn, "info_target", "fwdSpawn", 1)
     g_iFwdPreThink = RegisterHam(Ham_Player_PreThink, "player", "fwdPreThink")
     g_iFwdKilled = RegisterHam(Ham_Killed, "player", "fwdKilled", 1)
-    DisableForward()
-
     register_logevent("eventRoundStart", 2, "1=Round_Start")
-    set_task(g_eSettings[SETTING_CRYSTAL_TASK], "crystalTask", .flags = "b")
+    DisableForward()
 
     crystalInit()
     g_iMaxPlayers = get_maxplayers()
@@ -618,39 +615,29 @@ ReadFile()
                             parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_ROTATION_STEP], charsmax(g_eSettings[SETTING_ROTATION_STEP]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_LIFE") )
                             parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LIFE], charsmax(g_eSettings[SETTING_CRYSTAL_LIFE]))
-                        else if ( equali(szKey, "SETTING_SOUND_MENU_NAV") )
-                            parseSetting(DTYPE_STRING_SOUND, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_SOUND_MENU_NAV], charsmax(g_eSettings[SETTING_SOUND_MENU_NAV]))
-                        else if ( equali(szKey, "SETTING_SOUND_MENU_REMOVE") )
-                            parseSetting(DTYPE_STRING_SOUND, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_SOUND_MENU_REMOVE], charsmax(g_eSettings[SETTING_SOUND_MENU_REMOVE]))
-                        else if ( equali(szKey, "SETTING_SOUND_MENU_ALERT") )
-                            parseSetting(DTYPE_STRING_SOUND, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_SOUND_MENU_ALERT], charsmax(g_eSettings[SETTING_SOUND_MENU_ALERT]))
-                        else if ( equali(szKey, "SETTING_COLOR_ACTIVE") )
-                            parseSetting(DTYPE_INT_LIST, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_COLOR_ACTIVE], charsmax(g_eSettings[SETTING_COLOR_ACTIVE]))
-                        else if ( equali(szKey, "SETTING_COLOR_INACTIVE") )
-                            parseSetting(DTYPE_INT_LIST, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_COLOR_INACTIVE], charsmax(g_eSettings[SETTING_COLOR_INACTIVE]))
                     }
                     case SECTION_CRYSTAL:
                     {
                         if ( equali(szKey, "CRYSTAL_FLAGS") )
-                            parseSetting(DTYPE_FLAGS, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_FLAGS], charsmax(eCrystal[CRYSTAL_FLAGS]), g_eSettings[SETTING_DEFAULT_FLAGS])
+                            parseSetting(DTYPE_FLAGS, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_FLAGS], charsmax(eCrystal[CRYSTAL_FLAGS]))
                         else if ( equali(szKey, "CRYSTAL_TEAM") )
-                            parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TEAM], charsmax(eCrystal[CRYSTAL_TEAM]), g_eSettings[SETTING_DEFAULT_TEAM])
+                            parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TEAM], charsmax(eCrystal[CRYSTAL_TEAM]))
                         else if ( equali(szKey, "CRYSTAL_FRAMERATE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_FRAMERATE], charsmax(eCrystal[CRYSTAL_FRAMERATE]), g_eSettings[SETTING_DEFAULT_FRAMERATE])
+                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_FRAMERATE], charsmax(eCrystal[CRYSTAL_FRAMERATE]))
                         else if ( equali(szKey, "CRYSTAL_SPAWN_CHANCE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_SPAWN_CHANCE], charsmax(eCrystal[CRYSTAL_SPAWN_CHANCE]), g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE])
+                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_SPAWN_CHANCE], charsmax(eCrystal[CRYSTAL_SPAWN_CHANCE]))
                         else if ( equali(szKey, "CRYSTAL_ACTIVE_DELAY") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_DELAY], charsmax(eCrystal[CRYSTAL_ACTIVE_DELAY]), g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY])
+                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_DELAY], charsmax(eCrystal[CRYSTAL_ACTIVE_DELAY]))
                         else if ( equali(szKey, "CRYSTAL_ACTIVE_DURATION") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_DURATION], charsmax(eCrystal[CRYSTAL_ACTIVE_DURATION]), g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION])
+                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_DURATION], charsmax(eCrystal[CRYSTAL_ACTIVE_DURATION]))
                         else if ( equali(szKey, "CRYSTAL_ACTIVE_COOLDOWN") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_COOLDOWN], charsmax(eCrystal[CRYSTAL_ACTIVE_COOLDOWN]), g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN])
+                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_COOLDOWN], charsmax(eCrystal[CRYSTAL_ACTIVE_COOLDOWN]))
                         else if ( equali(szKey, "CRYSTAL_TRIGGER_DISTANCE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DISTANCE], charsmax(eCrystal[CRYSTAL_TRIGGER_DISTANCE]), g_eSettings[SETTING_DEFAULT_TRIGGER_DISTANCE])
+                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DISTANCE], charsmax(eCrystal[CRYSTAL_TRIGGER_DISTANCE]))
                         else if ( equali(szKey, "CRYSTAL_TRIGGER_DURATION") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DURATION], charsmax(eCrystal[CRYSTAL_TRIGGER_DURATION]), g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION])
+                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DURATION], charsmax(eCrystal[CRYSTAL_TRIGGER_DURATION]))
                         else if ( equali(szKey, "CRYSTAL_COLOR_FREQUENCY") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_COLOR_FREQUENCY], charsmax(eCrystal[CRYSTAL_COLOR_FREQUENCY]), g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY])
+                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_COLOR_FREQUENCY], charsmax(eCrystal[CRYSTAL_COLOR_FREQUENCY]))
                     }
                 }
             }
@@ -681,7 +668,7 @@ public client_disconnected(id)
         crystalRemove(iItem)
     }
 
-    DisableActive(id)
+    DisableAction(id)
     g_ePlayerData[id][PDATA_CRYSTAL_GHOST]  = 0
     g_ePlayerData[id][PDATA_CRYSTAL_MENU]   = 0
 }
@@ -937,7 +924,7 @@ public menuRemove(id, iMenu)
     formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_REMOVE_ALL")
     menu_additem(iMenu, szItem)
 
-    EnableActive(id)
+    EnableAction(id)
     crystalSelect(eCrystal, TARGET_SELECT)
     g_ePlayerData[id][PDATA_MENU_TYPE] = MENU_REMOVE
     ArraySetArray(g_aCrystal, g_ePlayerData[id][PDATA_CRYSTAL_MENU], eCrystal)
@@ -1008,7 +995,7 @@ public menuHandlerRemove(id, menu, item)
                 crystalSound(id, SOUND_MENU_NAV)
                 crystalMenu(id, MENU_ROOT)
 
-                DisableActive(id)
+                DisableAction(id)
                 g_ePlayerData[id][PDATA_CRYSTAL_MENU] = 0
             }
 
@@ -1016,7 +1003,7 @@ public menuHandlerRemove(id, menu, item)
         }
         default:
         {
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_MENU] = 0
         }
     }
@@ -1041,7 +1028,7 @@ public menuShow(id, iMenu)
     formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_SHOW_ALL_HIDE")
     menu_additem(iMenu, szItem)
 
-    EnableActive(id)
+    EnableAction(id)
     crystalSelect(eCrystal, TARGET_SELECT)
     g_ePlayerData[id][PDATA_MENU_TYPE] = MENU_SHOW
     ArraySetArray(g_aCrystal, g_ePlayerData[id][PDATA_CRYSTAL_MENU], eCrystal)
@@ -1125,7 +1112,7 @@ public menuHandlerShow(id, menu, item)
                 crystalSound(id, SOUND_MENU_NAV)
                 crystalMenu(id, MENU_ROOT)
 
-                DisableActive(id)
+                DisableAction(id)
                 g_ePlayerData[id][PDATA_CRYSTAL_MENU] = 0
             }
 
@@ -1133,7 +1120,7 @@ public menuHandlerShow(id, menu, item)
         }
         default:
         {
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_MENU] = 0
         }
     }
@@ -1158,7 +1145,7 @@ public menuStatus(id, iMenu)
     formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_STATUS_ALL_DISABLE")
     menu_additem(iMenu, szItem)
 
-    EnableActive(id)
+    EnableAction(id)
     crystalSelect(eCrystal, TARGET_SELECT)
     g_ePlayerData[id][PDATA_MENU_TYPE] = MENU_STATUS
     ArraySetArray(g_aCrystal, g_ePlayerData[id][PDATA_CRYSTAL_MENU], eCrystal)
@@ -1242,7 +1229,7 @@ public menuHandlerStatus(id, menu, item)
                 crystalSound(id, SOUND_MENU_NAV)
                 crystalMenu(id, MENU_ROOT)
 
-                DisableActive(id)
+                DisableAction(id)
                 g_ePlayerData[id][PDATA_CRYSTAL_MENU] = 0
             }
 
@@ -1250,7 +1237,7 @@ public menuHandlerStatus(id, menu, item)
         }
         default:
         {
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_MENU] = 0
         }
     }
@@ -1387,7 +1374,7 @@ public menuHandlerRotate(id, menu, item)
         {
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
 
             crystalSound(id, SOUND_MENU_NAV)
@@ -1397,7 +1384,7 @@ public menuHandlerRotate(id, menu, item)
         {
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
         }
     }
@@ -1423,10 +1410,10 @@ public menuLight(id, iMenu)
 
     menu_addblank2(iMenu)
 
-    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_LIGHT_FACTOR", g_iCrystalFactor[g_ePlayerData[id][PDATA_CRYSTAL_FACTOR]])
+    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_LIGHT_FACTOR", g_iCrystalFactor[g_ePlayerData[id][PDATA_LIGHT_FACTOR]])
     menu_additem(iMenu, szItem)
 
-    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_LIGHT_COLOR", id, g_szCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]])
+    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_LIGHT_COLOR", id, g_szCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]])
     menu_additem(iMenu, szItem)
 
     formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_LIGHT_PLACE")
@@ -1445,46 +1432,46 @@ public menuHandlerLight(id, menu, item)
 
     switch ( item )
     {
-        case CRYSTAL_SCALE_UP:
+        case LIGHT_SCALE_UP:
         {
-            eCrystal[CRYSTAL_DLIGHT_SCALE] = clamp(eCrystal[CRYSTAL_DLIGHT_SCALE] + g_iCrystalFactor[g_ePlayerData[id][PDATA_CRYSTAL_FACTOR]], CRYSTAL_DLIGHT_SCALE_MIN, CRYSTAL_DLIGHT_SCALE_MAX)
+            eCrystal[CRYSTAL_DLIGHT_SCALE] = clamp(eCrystal[CRYSTAL_DLIGHT_SCALE] + g_iCrystalFactor[g_ePlayerData[id][PDATA_LIGHT_FACTOR]], CRYSTAL_DLIGHT_SCALE_MIN, CRYSTAL_DLIGHT_SCALE_MAX)
             ArraySetArray(g_aCrystal, iItem, eCrystal)
 
             crystalSound(id, SOUND_MENU_NAV)
             crystalMenu(id, MENU_LIGHT)
         }
-        case CRYSTAL_SCALE_DOWN:
+        case LIGHT_SCALE_DOWN:
         {
-            eCrystal[CRYSTAL_DLIGHT_SCALE] = clamp(eCrystal[CRYSTAL_DLIGHT_SCALE] - g_iCrystalFactor[g_ePlayerData[id][PDATA_CRYSTAL_FACTOR]], CRYSTAL_DLIGHT_SCALE_MIN, CRYSTAL_DLIGHT_SCALE_MAX)
+            eCrystal[CRYSTAL_DLIGHT_SCALE] = clamp(eCrystal[CRYSTAL_DLIGHT_SCALE] - g_iCrystalFactor[g_ePlayerData[id][PDATA_LIGHT_FACTOR]], CRYSTAL_DLIGHT_SCALE_MIN, CRYSTAL_DLIGHT_SCALE_MAX)
             ArraySetArray(g_aCrystal, iItem, eCrystal)
 
             crystalSound(id, SOUND_MENU_NAV)
             crystalMenu(id, MENU_LIGHT)
         }
-        case CRYSTAL_FACTOR:
+        case LIGHT_FACTOR:
         {
-            if ( ++ g_ePlayerData[id][PDATA_CRYSTAL_FACTOR] >= sizeof(g_iCrystalFactor) )
-                g_ePlayerData[id][PDATA_CRYSTAL_FACTOR] = 0
+            if ( ++ g_ePlayerData[id][PDATA_LIGHT_FACTOR] >= sizeof(g_iCrystalFactor) )
+                g_ePlayerData[id][PDATA_LIGHT_FACTOR] = 0
 
             crystalSound(id, SOUND_MENU_NAV)
             crystalMenu(id, MENU_LIGHT)
         }
-        case CRYSTAL_COLOR:
+        case LIGHT_COLOR:
         {
-            if ( ++ g_ePlayerData[id][PDATA_CRYSTAL_COLOR] >= sizeof(g_iCrystalColors) )
-                g_ePlayerData[id][PDATA_CRYSTAL_COLOR] = 0
+            if ( ++ g_ePlayerData[id][PDATA_LIGHT_COLOR] >= sizeof(g_iCrystalColors) )
+                g_ePlayerData[id][PDATA_LIGHT_COLOR] = 0
 
-            eCrystal[CRYSTAL_DLIGHT_COLOR][0] = g_iCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]][0]
-            eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]][1]
-            eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]][2]
+            eCrystal[CRYSTAL_DLIGHT_COLOR][0] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][0]
+            eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][1]
+            eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][2]
             ArraySetArray(g_aCrystal, iItem, eCrystal)
 
             crystalSound(id, SOUND_MENU_NAV)
             crystalMenu(id, MENU_LIGHT)
         }
-        case CRYSTAL_PLACE:
+        case LIGHT_PLACE:
         {
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
             eCrystal[CRYSTAL_FLAGS] &= ~FLAG_LOCK
             crystalSetDelay(eCrystal)
@@ -1499,7 +1486,7 @@ public menuHandlerLight(id, menu, item)
         {
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
 
             crystalSound(id, SOUND_MENU_NAV)
@@ -1509,7 +1496,7 @@ public menuHandlerLight(id, menu, item)
         {
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
-            DisableActive(id)
+            DisableAction(id)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
         }
     }
@@ -1626,7 +1613,7 @@ stock crystalCreate(id, iItem)
     eCrystal[CRYSTAL_ITEM] = iItem
     if ( id )
     {
-        EnableActive(id)
+        EnableAction(id)
         g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = eCrystal[CRYSTAL_ID]
         g_ePlayerData[id][PDATA_ROTATE_MODE] = ROTATE_MODE_YAW
         g_ePlayerData[id][PDATA_OFFSET] = g_eSettings[SETTING_OFFSET_BASE]
@@ -1645,23 +1632,26 @@ stock crystalCreate(id, iItem)
 
     if ( id )
     {
-        eCrystal[CRYSTAL_DLIGHT_SCALE] = g_iCrystalFactor[g_ePlayerData[id][PDATA_CRYSTAL_FACTOR]]
-        eCrystal[CRYSTAL_DLIGHT_COLOR][0] = g_iCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]][0]
-        eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]][1]
-        eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[g_ePlayerData[id][PDATA_CRYSTAL_COLOR]][2]
+        eCrystal[CRYSTAL_DLIGHT_SCALE] = g_iCrystalFactor[g_ePlayerData[id][PDATA_LIGHT_FACTOR]]
+        eCrystal[CRYSTAL_DLIGHT_COLOR][0] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][0]
+        eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][1]
+        eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][2]
 
         crystalSetModel(eCrystal)
     }
 
-    g_iCrystal ++
     ArrayPushArray(g_aCrystal, eCrystal)
+    if ( ++ g_iCrystal == 1 )
+        set_task(g_eSettings[SETTING_CRYSTAL_TASK], "crystalTask", CRYSTAL_KEY, .flags = "b")
 }
 
 public crystalRemove(iItem)
 {
     new eCrystal[CRYSTAL]
     ArrayDeleteItem(g_aCrystal, iItem)
-    g_iCrystal --
+
+    if ( -- g_iCrystal == 0 )
+        remove_task(CRYSTAL_KEY)
 
     for ( new i = iItem; i < g_iCrystal; i ++ )
     {
@@ -1923,7 +1913,7 @@ public fwdPreThink(id)
 
 public fwdKilled(id, iAttacker, bGib)
 {
-    DisableActive(id)
+    DisableAction(id)
     g_ePlayerData[id][PDATA_CRYSTAL_MENU]   = 0
     if ( g_ePlayerData[id][PDATA_CRYSTAL_GHOST] )
     {
@@ -2227,8 +2217,8 @@ stock crystalSelect(eCrystal[CRYSTAL], iAction)
     iRenderFx = kRenderFxNone
     if ( iAction == TARGET_SELECT )
     {
-        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )    { iRenderColor[0] = g_eSettings[SETTING_COLOR_ACTIVE][0];   iRenderColor[1] = g_eSettings[SETTING_COLOR_ACTIVE][1];     iRenderColor[2] = g_eSettings[SETTING_COLOR_ACTIVE][2]; }
-        else                                            { iRenderColor[0] = g_eSettings[SETTING_COLOR_INACTIVE][0]; iRenderColor[1] = g_eSettings[SETTING_COLOR_INACTIVE][1];   iRenderColor[2] = g_eSettings[SETTING_COLOR_INACTIVE][2]; }
+        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )    { iRenderColor[0] = g_iColorActive[0];   iRenderColor[1] = g_iColorActive[1];     iRenderColor[2] = g_iColorActive[2]; }
+        else                                            { iRenderColor[0] = g_iColorInactive[0]; iRenderColor[1] = g_iColorInactive[1];   iRenderColor[2] = g_iColorInactive[2]; }
 
         iRender = kRenderTransColor
         iRenderFx = kRenderFxGlowShell
@@ -2258,9 +2248,9 @@ stock crystalSound(iEnt, iSound, bool:bPlayer = true)
     new szSample[64]
     switch( iSound )
     {
-        case SOUND_MENU_NAV:    copy(szSample, charsmax(szSample), g_eSettings[SETTING_SOUND_MENU_NAV])
-        case SOUND_MENU_REMOVE: copy(szSample, charsmax(szSample), g_eSettings[SETTING_SOUND_MENU_REMOVE])
-        case SOUND_MENU_ALERT:  copy(szSample, charsmax(szSample), g_eSettings[SETTING_SOUND_MENU_ALERT])
+        case SOUND_MENU_NAV:    copy(szSample, charsmax(szSample), SOUND_NAV)
+        case SOUND_MENU_REMOVE: copy(szSample, charsmax(szSample), SOUND_REMOVE)
+        case SOUND_MENU_ALERT:  copy(szSample, charsmax(szSample), SOUND_ALERT)
     }
 
     if ( bPlayer )
@@ -2303,37 +2293,29 @@ stock crystalKill(iEnt)
         set_pev(iEnt, pev_flags, pev(iEnt, pev_flags) | FL_KILLME)
 }
 
-stock parseSetting(iType, szKey[], iKeyLen, szValue[], iValueLen, any:aOutput[], iOutputLength, const any:aFallback[] = {0.0, 0.0})
+stock parseSetting(iType, szKey[], iKeyLen, szValue[], iValueLen, any:aOutput[], iOutputLength)
 {
     switch ( iType )
     {
         case DTYPE_INT:
         {
             aOutput[0] = str_to_num(szValue)
-            if ( aOutput[0] < 0 ) aOutput[0] = aFallback[0]
         }
         case DTYPE_INT_RANGE:
         {
             strtok(szValue, szKey, iKeyLen, szValue, iValueLen, ' ')
             aOutput[0] = str_to_num(szKey)
             aOutput[1] = str_to_num(szValue)
-
-            if ( aOutput[0] < 0 ) aOutput[0] = aFallback[0]
-            if ( aOutput[1] < 0 ) aOutput[1] = aFallback[1]
         }
         case DTYPE_FLOAT:
         {
             aOutput[0] = str_to_float(szValue)
-            if ( aOutput[0] < 0.0 ) aOutput[0] = aFallback[0]
         }
         case DTYPE_FLOAT_RANGE:
         {
             strtok(szValue, szKey, iKeyLen, szValue, iValueLen, ' ')
             aOutput[0] = str_to_float(szKey)
             aOutput[1] = str_to_float(szValue)
-
-            if ( aOutput[0] < 0.0 ) aOutput[0] = aFallback[0]
-            if ( aOutput[1] < 0.0 ) aOutput[1] = aFallback[1]
         }
         case DTYPE_INT_LIST:
         {
@@ -2402,7 +2384,7 @@ stock parseSetting(iType, szKey[], iKeyLen, szValue[], iValueLen, any:aOutput[],
     }
 }
 
-stock EnableActive(id)
+stock EnableAction(id)
 {
     if ( !g_ePlayerData[id][PDATA_CRYSTAL_ACTION] )
     {
@@ -2422,7 +2404,7 @@ stock EnableActive(id)
     }
 }
 
-stock DisableActive(id)
+stock DisableAction(id)
 {
     if ( g_ePlayerData[id][PDATA_CRYSTAL_ACTION] )
     {
