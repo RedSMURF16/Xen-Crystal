@@ -56,13 +56,16 @@
 #define CRYSTAL_ARRAY_ITEM          pev_iuser1
 #define CRYSTAL_DLIGHT_SCALE_MAX    100
 #define CRYSTAL_DLIGHT_SCALE_MIN    1
+#define PDATA_NEXT_ATTACK           83
+#define XO_CBASEPLAYER              5
+#define XO_CBASEPLAYERWEAPON        4
 #define SOUND_NAV                   "buttons/blip1.wav"
 #define SOUND_REMOVE                "buttons/button10.wav"
 #define SOUND_ALERT                 "buttons/bell1.wav"
 
 new const PLUGIN_VERSION[]          = "1.0"
 new const Float:DELAY_ON_CONNECT    = 1.0
-new const Float:DELAY_ON_LOAD       = 1.0
+new const Float:DELAY_ON_LOAD       = 2.0
 new const ERROR_FILE[]              = "XenCrystal_ERRORS.log"
 
 enum
@@ -75,12 +78,7 @@ enum
 enum
 {
     DTYPE_INT,
-    DTYPE_INT_RANGE,
     DTYPE_FLOAT,
-    DTYPE_FLOAT_RANGE,
-    DTYPE_INT_LIST,
-    DTYPE_FLOAT_LIST,
-    DTYPE_BOOL,
     DTYPE_FLAGS,
     DTYPE_ARRAY_STRING,
     DTYPE_ARRAY_SOUND,
@@ -92,17 +90,15 @@ enum
 enum
 {
     FLAG_SOLID              = (1 << 0),
-    FLAG_ACTIVE_DELAY       = (1 << 1),
-    FLAG_ACTIVE_DURATION    = (1 << 2),
-    FLAG_REVERSE            = (1 << 3),
-    FLAG_COLOR_RANDOM       = (1 << 4),
+    FLAG_REVERSE            = (1 << 1),
+    FLAG_COLOR_RANDOM       = (1 << 2),
 
-    FLAG_SHOW               = (1 << 5),
-    FLAG_GHOST              = (1 << 6),
-    FLAG_GROUND             = (1 << 7),
-    FLAG_ACTIVE             = (1 << 8),
-    FLAG_LOCK               = (1 << 9),
-    FLAG_PENDING            = (1 << 10)
+    FLAG_SHOW               = (1 << 3),
+    FLAG_GHOST              = (1 << 4),
+    FLAG_GROUND             = (1 << 5),
+    FLAG_ACTIVE             = (1 << 6),
+    FLAG_LOCK               = (1 << 7),
+    FLAG_PENDING            = (1 << 8)
 }
 
 enum
@@ -147,10 +143,6 @@ enum _:MAIN_SETTINGS
     SETTING_DEFAULT_TEAM,
     Float:SETTING_DEFAULT_FRAMERATE,
 
-    Float:SETTING_DEFAULT_SPAWN_CHANCE,
-    Float:SETTING_DEFAULT_ACTIVE_DELAY[2],
-    Float:SETTING_DEFAULT_ACTIVE_DURATION[2],
-    Float:SETTING_DEFAULT_ACTIVE_COOLDOWN[2],
     Float:SETTING_DEFAULT_TRIGGER_DISTANCE,
     Float:SETTING_DEFAULT_TRIGGER_DURATION[2],
     Float:SETTING_DEFAULT_COLOR_FREQUENCY[2],
@@ -193,18 +185,12 @@ enum _:CRYSTAL
     Float:CRYSTAL_MAXS[3],
 
     Float:CRYSTAL_FRAMERATE,
-    Float:CRYSTAL_SPAWN_CHANCE,
-    Float:CRYSTAL_ACTIVE_DELAY[2],
-    Float:CRYSTAL_ACTIVE_DURATION[2],
-    Float:CRYSTAL_ACTIVE_COOLDOWN[2],
     Float:CRYSTAL_TRIGGER_DISTANCE,
     Float:CRYSTAL_TRIGGER_DURATION[2],
     Float:CRYSTAL_COLOR_FREQUENCY[2],
     CRYSTAL_DLIGHT_COLOR[3],
     CRYSTAL_DLIGHT_SCALE,
 
-    Float:CRYSTAL_NEXT_ENABLE,
-    Float:CRYSTAL_NEXT_DISABLE,
     Float:CRYSTAL_NEXT_SHOW,
     Float:CRYSTAL_NEXT_HIDE,
     Float:CRYSTAL_NEXT_RANDOM
@@ -342,7 +328,7 @@ new Array:g_aCrystal,
     g_eSettings[MAIN_SETTINGS],
     g_ePlayerData[MAX_PLAYERS + 1][PLAYER_DATA],
     bool:g_bFileWasRead, g_iActivePlayers,
-    g_iFwdUpdateClientData, HamHook:g_iFwdSpawn, HamHook:g_iFwdPreThink, HamHook:g_iFwdKilled,
+    HamHook:g_iFwdPreThink, HamHook:g_iFwdKilled,
     g_iCrystal, g_iCrystalConfig,
     g_iMaxPlayers
 
@@ -382,8 +368,6 @@ public plugin_init()
     register_concmd("xencrystal_reload",  "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
     register_dictionary("XenCrystal.txt")
 
-    g_iFwdUpdateClientData = register_forward(FM_UpdateClientData, "fwdUpdateClientData", 1)
-    g_iFwdSpawn = RegisterHam(Ham_Spawn, "info_target", "fwdSpawn", 1)
     g_iFwdPreThink = RegisterHam(Ham_Player_PreThink, "player", "fwdPreThink")
     g_iFwdKilled = RegisterHam(Ham_Killed, "player", "fwdKilled", 1)
     register_logevent("eventRoundStart", 2, "1=Round_Start")
@@ -431,30 +415,7 @@ public cmdReload(id, iLevel, iCmd)
 
 public eventRoundStart()
 {
-    if ( !g_iCrystal )
-        return PLUGIN_HANDLED
-
-    new eCrystal[CRYSTAL]
-    for ( new i = 0; i < g_iCrystal; i ++ )
-    {
-        ArrayGetArray(g_aCrystal, i, eCrystal)
-
-        if ( (eCrystal[CRYSTAL_FLAGS] & (FLAG_SHOW | FLAG_ACTIVE)) != (FLAG_SHOW | FLAG_ACTIVE) )
-            continue
-
-        crystalReset(eCrystal)
-        if ( eCrystal[CRYSTAL_SPAWN_CHANCE] >= random_float(0.0, 1.0) )
-        {
-            eCrystal[CRYSTAL_FLAGS] |= (FLAG_SHOW | FLAG_ACTIVE)
-
-            crystalSetState(eCrystal)
-            crystalSetDelay(eCrystal)
-        }
-
-        ArraySetArray(g_aCrystal, i, eCrystal)
-    }
-
-    return PLUGIN_HANDLED
+    crystalReset()
 }
 
 ReadFile()
@@ -516,13 +477,6 @@ ReadFile()
                         eCrystal[CRYSTAL_FLAGS]                 = g_eSettings[SETTING_DEFAULT_FLAGS]
                         eCrystal[CRYSTAL_TEAM]                  = g_eSettings[SETTING_DEFAULT_TEAM]
                         eCrystal[CRYSTAL_FRAMERATE]             = g_eSettings[SETTING_DEFAULT_FRAMERATE]
-                        eCrystal[CRYSTAL_SPAWN_CHANCE]          = g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE]
-                        eCrystal[CRYSTAL_ACTIVE_DELAY][0]       = g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY][0]
-                        eCrystal[CRYSTAL_ACTIVE_DELAY][1]       = g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY][1]
-                        eCrystal[CRYSTAL_ACTIVE_DURATION][0]    = g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION][0]
-                        eCrystal[CRYSTAL_ACTIVE_DURATION][1]    = g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION][1]
-                        eCrystal[CRYSTAL_ACTIVE_COOLDOWN][0]    = g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN][0]
-                        eCrystal[CRYSTAL_ACTIVE_COOLDOWN][1]    = g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN][1]
                         eCrystal[CRYSTAL_TRIGGER_DISTANCE]      = g_eSettings[SETTING_DEFAULT_TRIGGER_DISTANCE]
                         eCrystal[CRYSTAL_TRIGGER_DURATION][0]   = g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION][0]
                         eCrystal[CRYSTAL_TRIGGER_DURATION][1]   = g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION][1]
@@ -558,86 +512,70 @@ ReadFile()
                     case SECTION_MAIN_SETTINGS:
                     {
                         if ( equali(szKey, "SETTING_DEFAULT_FLAGS") )
-                            parseSetting(DTYPE_FLAGS, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_FLAGS], charsmax(g_eSettings[SETTING_DEFAULT_FLAGS]))
+                            parseSetting(DTYPE_FLAGS, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_FLAGS], charsmax(g_eSettings[SETTING_DEFAULT_FLAGS]))
                         else if ( equali(szKey, "SETTING_DEFAULT_TEAM") )
-                            parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TEAM], charsmax(g_eSettings[SETTING_DEFAULT_TEAM]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TEAM], charsmax(g_eSettings[SETTING_DEFAULT_TEAM]))
                         else if ( equali(szKey, "SETTING_DEFAULT_FRAMERATE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_FRAMERATE], charsmax(g_eSettings[SETTING_DEFAULT_FRAMERATE]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_SPAWN_CHANCE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE], charsmax(g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_ACTIVE_DELAY") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_ACTIVE_DURATION") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_ACTIVE_COOLDOWN") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_FRAMERATE], charsmax(g_eSettings[SETTING_DEFAULT_FRAMERATE]))
                         else if ( equali(szKey, "SETTING_DEFAULT_TRIGGER_DISTANCE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TRIGGER_DISTANCE], charsmax(g_eSettings[SETTING_DEFAULT_TRIGGER_DISTANCE]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TRIGGER_DISTANCE], charsmax(g_eSettings[SETTING_DEFAULT_TRIGGER_DISTANCE]))
                         else if ( equali(szKey, "SETTING_DEFAULT_TRIGGER_DURATION") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION], charsmax(g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION], charsmax(g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION]))
                         else if ( equali(szKey, "SETTING_DEFAULT_COLOR_FREQUENCY") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY], charsmax(g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY], charsmax(g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY]))
                         else if ( equali(szKey, "SETTING_MODEL_CRYSTAL1_NORMAL") )
-                            parseSetting(DTYPE_STRING_MODEL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL]))
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL]))
                         else if ( equali(szKey, "SETTING_MODEL_CRYSTAL2_NORMAL") )
-                            parseSetting(DTYPE_STRING_MODEL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL]))
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL]))
                         else if ( equali(szKey, "SETTING_MODEL_CRYSTAL3_NORMAL") )
-                            parseSetting(DTYPE_STRING_MODEL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL]))
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL]))
                         else if ( equali(szKey, "SETTING_MODEL_CRYSTAL1_LARGE") )
-                            parseSetting(DTYPE_STRING_MODEL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE]))
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE]))
                         else if ( equali(szKey, "SETTING_MODEL_CRYSTAL2_LARGE") )
-                            parseSetting(DTYPE_STRING_MODEL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE]))
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE]))
                         else if ( equali(szKey, "SETTING_MODEL_CRYSTAL3_LARGE") )
-                            parseSetting(DTYPE_STRING_MODEL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE]))
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE]))
                         else if ( equali(szKey, "SETTING_MINS_NORMAL") )
-                            parseSetting(DTYPE_FLOAT_LIST, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MINS_NORMAL], charsmax(g_eSettings[SETTING_MINS_NORMAL]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_MINS_NORMAL], charsmax(g_eSettings[SETTING_MINS_NORMAL]))
                         else if ( equali(szKey, "SETTING_MAXS_NORMAL") )
-                            parseSetting(DTYPE_FLOAT_LIST, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MAXS_NORMAL], charsmax(g_eSettings[SETTING_MAXS_NORMAL]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_MAXS_NORMAL], charsmax(g_eSettings[SETTING_MAXS_NORMAL]))
                         else if ( equali(szKey, "SETTING_MINS_LARGE") )
-                            parseSetting(DTYPE_FLOAT_LIST, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MINS_LARGE], charsmax(g_eSettings[SETTING_MINS_LARGE]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_MINS_LARGE], charsmax(g_eSettings[SETTING_MINS_LARGE]))
                         else if ( equali(szKey, "SETTING_MAXS_LARGE") )
-                            parseSetting(DTYPE_FLOAT_LIST, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_MAXS_LARGE], charsmax(g_eSettings[SETTING_MAXS_LARGE]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_MAXS_LARGE], charsmax(g_eSettings[SETTING_MAXS_LARGE]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_LOAD") )
-                            parseSetting(DTYPE_BOOL, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LOAD], charsmax(g_eSettings[SETTING_CRYSTAL_LOAD]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LOAD], charsmax(g_eSettings[SETTING_CRYSTAL_LOAD]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_CHECK") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_CHECK], charsmax(g_eSettings[SETTING_CRYSTAL_CHECK]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_CHECK], charsmax(g_eSettings[SETTING_CRYSTAL_CHECK]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_TASK") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_TASK], charsmax(g_eSettings[SETTING_CRYSTAL_TASK]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_TASK], charsmax(g_eSettings[SETTING_CRYSTAL_TASK]))
                         else if ( equali(szKey, "SETTING_OFFSET_BASE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_BASE], charsmax(g_eSettings[SETTING_OFFSET_BASE]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_BASE], charsmax(g_eSettings[SETTING_OFFSET_BASE]))
                         else if ( equali(szKey, "SETTING_OFFSET") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET], charsmax(g_eSettings[SETTING_OFFSET]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET], charsmax(g_eSettings[SETTING_OFFSET]))
                         else if ( equali(szKey, "SETTING_OFFSET_STEP") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_STEP], charsmax(g_eSettings[SETTING_OFFSET_STEP]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_STEP], charsmax(g_eSettings[SETTING_OFFSET_STEP]))
                         else if ( equali(szKey, "SETTING_GHOST_ALPHA") )
-                            parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_GHOST_ALPHA], charsmax(g_eSettings[SETTING_GHOST_ALPHA]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_GHOST_ALPHA], charsmax(g_eSettings[SETTING_GHOST_ALPHA]))
                         else if ( equali(szKey, "SETTING_ROTATION_STEP") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_ROTATION_STEP], charsmax(g_eSettings[SETTING_ROTATION_STEP]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_ROTATION_STEP], charsmax(g_eSettings[SETTING_ROTATION_STEP]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_LIFE") )
-                            parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LIFE], charsmax(g_eSettings[SETTING_CRYSTAL_LIFE]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LIFE], charsmax(g_eSettings[SETTING_CRYSTAL_LIFE]))
                     }
                     case SECTION_CRYSTAL:
                     {
                         if ( equali(szKey, "CRYSTAL_FLAGS") )
-                            parseSetting(DTYPE_FLAGS, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_FLAGS], charsmax(eCrystal[CRYSTAL_FLAGS]))
+                            parseSetting(DTYPE_FLAGS, szValue, charsmax(szValue), eCrystal[CRYSTAL_FLAGS], charsmax(eCrystal[CRYSTAL_FLAGS]))
                         else if ( equali(szKey, "CRYSTAL_TEAM") )
-                            parseSetting(DTYPE_INT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TEAM], charsmax(eCrystal[CRYSTAL_TEAM]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), eCrystal[CRYSTAL_TEAM], charsmax(eCrystal[CRYSTAL_TEAM]))
                         else if ( equali(szKey, "CRYSTAL_FRAMERATE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_FRAMERATE], charsmax(eCrystal[CRYSTAL_FRAMERATE]))
-                        else if ( equali(szKey, "CRYSTAL_SPAWN_CHANCE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_SPAWN_CHANCE], charsmax(eCrystal[CRYSTAL_SPAWN_CHANCE]))
-                        else if ( equali(szKey, "CRYSTAL_ACTIVE_DELAY") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_DELAY], charsmax(eCrystal[CRYSTAL_ACTIVE_DELAY]))
-                        else if ( equali(szKey, "CRYSTAL_ACTIVE_DURATION") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_DURATION], charsmax(eCrystal[CRYSTAL_ACTIVE_DURATION]))
-                        else if ( equali(szKey, "CRYSTAL_ACTIVE_COOLDOWN") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_ACTIVE_COOLDOWN], charsmax(eCrystal[CRYSTAL_ACTIVE_COOLDOWN]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eCrystal[CRYSTAL_FRAMERATE], charsmax(eCrystal[CRYSTAL_FRAMERATE]))
                         else if ( equali(szKey, "CRYSTAL_TRIGGER_DISTANCE") )
-                            parseSetting(DTYPE_FLOAT, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DISTANCE], charsmax(eCrystal[CRYSTAL_TRIGGER_DISTANCE]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DISTANCE], charsmax(eCrystal[CRYSTAL_TRIGGER_DISTANCE]))
                         else if ( equali(szKey, "CRYSTAL_TRIGGER_DURATION") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DURATION], charsmax(eCrystal[CRYSTAL_TRIGGER_DURATION]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eCrystal[CRYSTAL_TRIGGER_DURATION], charsmax(eCrystal[CRYSTAL_TRIGGER_DURATION]))
                         else if ( equali(szKey, "CRYSTAL_COLOR_FREQUENCY") )
-                            parseSetting(DTYPE_FLOAT_RANGE, szKey, charsmax(szKey), szValue, charsmax(szValue), eCrystal[CRYSTAL_COLOR_FREQUENCY], charsmax(eCrystal[CRYSTAL_COLOR_FREQUENCY]))
+                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eCrystal[CRYSTAL_COLOR_FREQUENCY], charsmax(eCrystal[CRYSTAL_COLOR_FREQUENCY]))
                     }
                 }
             }
@@ -1375,6 +1313,7 @@ public menuHandlerRotate(id, menu, item)
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
 
             crystalSound(id, SOUND_MENU_NAV)
@@ -1385,6 +1324,7 @@ public menuHandlerRotate(id, menu, item)
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
         }
     }
@@ -1472,9 +1412,9 @@ public menuHandlerLight(id, menu, item)
         case LIGHT_PLACE:
         {
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
             eCrystal[CRYSTAL_FLAGS] &= ~FLAG_LOCK
-            crystalSetDelay(eCrystal)
             crystalSetState(eCrystal)
             ArraySetArray(g_aCrystal, iItem, eCrystal)
 
@@ -1487,6 +1427,7 @@ public menuHandlerLight(id, menu, item)
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
 
             crystalSound(id, SOUND_MENU_NAV)
@@ -1497,6 +1438,7 @@ public menuHandlerLight(id, menu, item)
             crystalKill(eCrystal[CRYSTAL_ID])
             crystalRemove(iItem)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = 0
         }
     }
@@ -1547,17 +1489,6 @@ public crystalTask()
 
                     bModified = true
                 }
-
-                if ( eCrystal[CRYSTAL_NEXT_DISABLE] > 0.0
-                && fCurrentTime >= eCrystal[CRYSTAL_NEXT_DISABLE] )
-                {
-                    eCrystal[CRYSTAL_FLAGS] &= ~FLAG_ACTIVE
-                    eCrystal[CRYSTAL_FLAGS] |= FLAG_PENDING
-                    eCrystal[CRYSTAL_NEXT_DISABLE] = 0.0
-                    eCrystal[CRYSTAL_NEXT_ENABLE] = fCurrentTime + random_float(eCrystal[CRYSTAL_ACTIVE_COOLDOWN][0], eCrystal[CRYSTAL_ACTIVE_COOLDOWN][1])
-
-                    bModified = true
-                }
             }
             else
             {
@@ -1578,18 +1509,6 @@ public crystalTask()
                     eCrystal[CRYSTAL_FLAGS] |= FLAG_ACTIVE
                     eCrystal[CRYSTAL_FLAGS] &= ~FLAG_PENDING
                     eCrystal[CRYSTAL_NEXT_SHOW] = 0.0
-
-                    bModified = true
-                }
-
-                if ( eCrystal[CRYSTAL_NEXT_ENABLE] > 0.0
-                && fCurrentTime >= eCrystal[CRYSTAL_NEXT_ENABLE] )
-                {
-                    eCrystal[CRYSTAL_FLAGS] |= FLAG_ACTIVE
-                    eCrystal[CRYSTAL_FLAGS] &= ~FLAG_PENDING
-                    eCrystal[CRYSTAL_NEXT_ENABLE] = 0.0
-                    if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE_DURATION )
-                        eCrystal[CRYSTAL_NEXT_DISABLE] = fCurrentTime + random_float(eCrystal[CRYSTAL_ACTIVE_DURATION][0], eCrystal[CRYSTAL_ACTIVE_DURATION][1])
 
                     bModified = true
                 }
@@ -1628,6 +1547,8 @@ stock crystalCreate(id, iItem)
     set_pev(iEnt, pev_impulse, CRYSTAL_KEY)
     set_pev(iEnt, CRYSTAL_ARRAY_ITEM, g_iCrystal)
     dllfunc(DLLFunc_Spawn, iEnt)
+    set_pev(iEnt, pev_solid, SOLID_NOT)
+    set_pev(iEnt, pev_movetype, MOVETYPE_FLY)
     set_pev(iEnt, pev_framerate, eCrystal[CRYSTAL_FRAMERATE])
 
     if ( id )
@@ -1824,7 +1745,6 @@ stock loadDataCrystal(iItem, iFlags, iSize, iShape, iScale, iColor[3], Float:fOr
     crystalSetModel(eCrystal)
     crystalSetBox(eCrystal)
     crystalSetSize(eCrystal)
-    crystalSetDelay(eCrystal)
     crystalSetState(eCrystal)
     ArraySetArray(g_aCrystal, iCount, eCrystal)
 }
@@ -1843,28 +1763,6 @@ public crystalGodMode(id)
 
     crystalSound(id, SOUND_MENU_NAV)
     crystalMenu(id, MENU_ROOT)
-}
-
-public fwdUpdateClientData(id, iSendWeapons, iHandle)
-{
-    if ( g_ePlayerData[id][PDATA_CRYSTAL_GHOST] )
-    {
-        set_cd(iHandle, CD_WeaponAnim, 0)
-        set_cd(iHandle, CD_flNextAttack, get_gametime() + 0.1)
-    }
-
-    return FMRES_IGNORED
-}
-
-public fwdSpawn(iEnt)
-{
-    if ( !isCrystal(iEnt) )
-        return HAM_IGNORED
-
-    set_pev(iEnt, pev_solid, SOLID_NOT)
-    set_pev(iEnt, pev_movetype, MOVETYPE_FLY)
-
-    return HAM_IGNORED
 }
 
 public fwdPreThink(id)
@@ -1897,6 +1795,7 @@ public fwdPreThink(id)
                 }
             }
 
+            set_pdata_float(id, PDATA_NEXT_ATTACK, fCurrentTime + 0.1, XO_CBASEPLAYER, XO_CBASEPLAYER)
             iButton &= ~(IN_ATTACK | IN_ATTACK2)
             set_pev(id, pev_button, iButton)
 
@@ -2130,14 +2029,6 @@ stock crystalSetOffset(eCrystal[CRYSTAL])
     }
 }
 
-stock crystalSetSeq(iEnt, Float:fFrameRate, iSequence)
-{
-    set_pev(iEnt, pev_sequence, iSequence)
-    set_pev(iEnt, pev_frame, 0.0)
-    set_pev(iEnt, pev_framerate, fFrameRate)
-    set_pev(iEnt, pev_animtime, get_gametime())
-}
-
 stock crystalSetSize(eCrystal[CRYSTAL])
 {
     crystalSelect(eCrystal, TARGET_CLEAR)
@@ -2151,6 +2042,9 @@ stock crystalSetSize(eCrystal[CRYSTAL])
 
 stock crystalSetState(eCrystal[CRYSTAL])
 {
+    if ( eCrystal[CRYSTAL_FLAGS] & FLAG_COLOR_RANDOM )
+        eCrystal[CRYSTAL_NEXT_RANDOM] = get_gametime() + random_float(eCrystal[CRYSTAL_COLOR_FREQUENCY][0], eCrystal[CRYSTAL_COLOR_FREQUENCY][1])
+
     if ( eCrystal[CRYSTAL_FLAGS] & FLAG_SHOW )
     {
         set_pev(eCrystal[CRYSTAL_ID], pev_solid, eCrystal[CRYSTAL_FLAGS] & FLAG_SOLID ? SOLID_BBOX : SOLID_NOT)
@@ -2161,31 +2055,6 @@ stock crystalSetState(eCrystal[CRYSTAL])
         set_pev(eCrystal[CRYSTAL_ID], pev_solid, SOLID_NOT)
         crystalSelect(eCrystal, TARGET_HIDE)
     }
-}
-
-stock crystalSetDelay(eCrystal[CRYSTAL])
-{
-    if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )
-    {
-        new Float:fCurrentTime
-        fCurrentTime = get_gametime()
-
-        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE_DELAY )
-        {
-            eCrystal[CRYSTAL_FLAGS] &= ~FLAG_ACTIVE
-            eCrystal[CRYSTAL_NEXT_ENABLE] = fCurrentTime + random_float(eCrystal[CRYSTAL_ACTIVE_DELAY][0], eCrystal[CRYSTAL_ACTIVE_DELAY][1])
-
-            crystalSetState(eCrystal)
-        }
-        else
-        {
-            if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE_DURATION )
-                eCrystal[CRYSTAL_NEXT_DISABLE] = fCurrentTime + random_float(eCrystal[CRYSTAL_ACTIVE_DURATION][0], eCrystal[CRYSTAL_ACTIVE_DURATION][1])
-        }
-    }
-
-    if ( eCrystal[CRYSTAL_FLAGS] & FLAG_COLOR_RANDOM )
-        eCrystal[CRYSTAL_NEXT_RANDOM] = get_gametime() + random_float(eCrystal[CRYSTAL_COLOR_FREQUENCY][0], eCrystal[CRYSTAL_COLOR_FREQUENCY][1])
 }
 
 stock crystalSetModel(eCrystal[CRYSTAL])
@@ -2243,6 +2112,19 @@ stock crystalSelect(eCrystal[CRYSTAL], iAction)
     set_ent_rendering(eCrystal[CRYSTAL_ID], iRenderFx, iRenderColor[0], iRenderColor[1], iRenderColor[2], iRender, iRenderAmt)
 }
 
+stock crystalReset()
+{
+    new eCrystal[CRYSTAL]
+    for ( new i = 0; i < g_iCrystal; i ++ )
+    {
+        ArrayGetArray(g_aCrystal, i, eCrystal)
+        eCrystal[CRYSTAL_NEXT_HIDE] = 0.0
+        eCrystal[CRYSTAL_NEXT_SHOW] = 0.0
+        eCrystal[CRYSTAL_NEXT_RANDOM] = 0.0
+        ArraySetArray(g_aCrystal, i, eCrystal)
+    }
+}
+
 stock crystalSound(iEnt, iSound, bool:bPlayer = true)
 {
     new szSample[64]
@@ -2259,18 +2141,6 @@ stock crystalSound(iEnt, iSound, bool:bPlayer = true)
         engfunc(EngFunc_EmitSound, iEnt, CHAN_ITEM, szSample, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 }
 
-stock crystalReset(eCrystal[CRYSTAL])
-{
-    eCrystal[CRYSTAL_FLAGS] &= ~(FLAG_SHOW | FLAG_ACTIVE)
-    eCrystal[CRYSTAL_NEXT_ENABLE] = 0.0
-    eCrystal[CRYSTAL_NEXT_DISABLE] = 0.0
-    eCrystal[CRYSTAL_NEXT_SHOW] = 0.0
-    eCrystal[CRYSTAL_NEXT_HIDE] = 0.0
-    eCrystal[CRYSTAL_NEXT_RANDOM] = 0.0
-
-    crystalSetState(eCrystal)
-}
-
 stock crystalGet(eCrystal[CRYSTAL], iEnt)
 {
     new iItem
@@ -2284,7 +2154,7 @@ stock crystalGet(eCrystal[CRYSTAL], iEnt)
 
 stock bool:isCrystal(iEnt)
 {
-    return pev(iEnt, pev_impulse) == CRYSTAL_KEY
+    return pev_valid(iEnt) && pev(iEnt, pev_impulse) == CRYSTAL_KEY
 }
 
 stock crystalKill(iEnt)
@@ -2293,31 +2163,11 @@ stock crystalKill(iEnt)
         set_pev(iEnt, pev_flags, pev(iEnt, pev_flags) | FL_KILLME)
 }
 
-stock parseSetting(iType, szKey[], iKeyLen, szValue[], iValueLen, any:aOutput[], iOutputLength)
+stock parseSetting(iType, szValue[], iValueLen, any:aOutput[], iOutputLength)
 {
     switch ( iType )
     {
         case DTYPE_INT:
-        {
-            aOutput[0] = str_to_num(szValue)
-        }
-        case DTYPE_INT_RANGE:
-        {
-            strtok(szValue, szKey, iKeyLen, szValue, iValueLen, ' ')
-            aOutput[0] = str_to_num(szKey)
-            aOutput[1] = str_to_num(szValue)
-        }
-        case DTYPE_FLOAT:
-        {
-            aOutput[0] = str_to_float(szValue)
-        }
-        case DTYPE_FLOAT_RANGE:
-        {
-            strtok(szValue, szKey, iKeyLen, szValue, iValueLen, ' ')
-            aOutput[0] = str_to_float(szKey)
-            aOutput[1] = str_to_float(szValue)
-        }
-        case DTYPE_INT_LIST:
         {
             new szTok[MAX_VALUE_LENGTH], szTmp[MAX_VALUE_LENGTH], iCounter
             copy(szTmp, charsmax(szTmp), szValue)
@@ -2332,7 +2182,7 @@ stock parseSetting(iType, szKey[], iKeyLen, szValue[], iValueLen, any:aOutput[],
                 trim(szTok)
             }
         }
-        case DTYPE_FLOAT_LIST:
+        case DTYPE_FLOAT:
         {
             new szTok[MAX_VALUE_LENGTH], szTmp[MAX_VALUE_LENGTH], iCounter
             copy(szTmp, charsmax(szTmp), szValue)
@@ -2346,10 +2196,6 @@ stock parseSetting(iType, szKey[], iKeyLen, szValue[], iValueLen, any:aOutput[],
                 strtok(szTmp, szTok, charsmax(szTok), szTmp, charsmax(szTmp), ' ')
                 trim(szTok)
             }
-        }
-        case DTYPE_BOOL:
-        {
-            aOutput[0] = bool:str_to_num(szValue)
         }
         case DTYPE_FLAGS:
         {
@@ -2426,16 +2272,12 @@ stock DisableAction(id)
 
 stock EnableForward()
 {
-    g_iFwdUpdateClientData = register_forward(FM_UpdateClientData, "fwdUpdateClientData", 1)
-    EnableHamForward(g_iFwdSpawn)
     EnableHamForward(g_iFwdPreThink)
     EnableHamForward(g_iFwdKilled)
 }
 
 stock DisableForward()
 {
-    unregister_forward(FM_UpdateClientData, g_iFwdUpdateClientData, 1)
-    DisableHamForward(g_iFwdSpawn)
     DisableHamForward(g_iFwdPreThink)
     DisableHamForward(g_iFwdKilled)
 }
