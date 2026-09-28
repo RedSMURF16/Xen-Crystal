@@ -147,12 +147,8 @@ enum _:MAIN_SETTINGS
     Float:SETTING_DEFAULT_TRIGGER_DURATION[2],
     Float:SETTING_DEFAULT_COLOR_FREQUENCY[2],
 
-    SETTING_MODEL_CRYSTAL1_NORMAL[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_MODEL_CRYSTAL2_NORMAL[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_MODEL_CRYSTAL3_NORMAL[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_MODEL_CRYSTAL1_LARGE[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_MODEL_CRYSTAL2_LARGE[MAX_RESOURCE_PATH_LENGTH],
-    SETTING_MODEL_CRYSTAL3_LARGE[MAX_RESOURCE_PATH_LENGTH],
+    SETTING_MODEL_CRYSTAL_NORMAL[MAX_RESOURCE_PATH_LENGTH],
+    SETTING_MODEL_CRYSTAL_LARGE[MAX_RESOURCE_PATH_LENGTH],
     Float:SETTING_MINS_NORMAL[3],
     Float:SETTING_MAXS_NORMAL[3],
     Float:SETTING_MINS_LARGE[3],
@@ -523,18 +519,10 @@ ReadFile()
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION], charsmax(g_eSettings[SETTING_DEFAULT_TRIGGER_DURATION]))
                         else if ( equali(szKey, "SETTING_DEFAULT_COLOR_FREQUENCY") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY], charsmax(g_eSettings[SETTING_DEFAULT_COLOR_FREQUENCY]))
-                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL1_NORMAL") )
-                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL]))
-                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL2_NORMAL") )
-                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL]))
-                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL3_NORMAL") )
-                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL]))
-                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL1_LARGE") )
-                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE]))
-                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL2_LARGE") )
-                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE]))
-                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL3_LARGE") )
-                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE]))
+                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL_NORMAL") )
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL_NORMAL], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL_NORMAL]))
+                        else if ( equali(szKey, "SETTING_MODEL_CRYSTAL_LARGE") )
+                            parseSetting(DTYPE_STRING_MODEL, szValue, charsmax(szValue), g_eSettings[SETTING_MODEL_CRYSTAL_LARGE], charsmax(g_eSettings[SETTING_MODEL_CRYSTAL_LARGE]))
                         else if ( equali(szKey, "SETTING_MINS_NORMAL") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_MINS_NORMAL], charsmax(g_eSettings[SETTING_MINS_NORMAL]))
                         else if ( equali(szKey, "SETTING_MAXS_NORMAL") )
@@ -1273,7 +1261,11 @@ public menuHandlerRotate(id, menu, item)
                 g_ePlayerData[id][PDATA_ROTATE_SIZE] = SIZE_NORMAL
 
             eCrystal[CRYSTAL_SIZE] = g_ePlayerData[id][PDATA_ROTATE_SIZE]
-            crystalSetModel(eCrystal)
+            switch( eCrystal[CRYSTAL_SIZE] )
+            {
+                case SIZE_NORMAL: engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL_NORMAL])
+                case SIZE_LARGE:  engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL_LARGE])
+            }
 
             ArraySetArray(g_aCrystal, iItem, eCrystal)
             crystalSound(id, SOUND_MENU_NAV)
@@ -1285,7 +1277,7 @@ public menuHandlerRotate(id, menu, item)
                 g_ePlayerData[id][PDATA_ROTATE_SHAPE] = SHAPE_1
 
             eCrystal[CRYSTAL_SHAPE] = g_ePlayerData[id][PDATA_ROTATE_SHAPE]
-            crystalSetModel(eCrystal)
+            set_pev(eCrystal[CRYSTAL_ID], pev_body, eCrystal[CRYSTAL_SHAPE])
             ArraySetArray(g_aCrystal, iItem, eCrystal)
 
             crystalSound(id, SOUND_MENU_NAV)
@@ -1558,7 +1550,12 @@ stock crystalCreate(id, iItem)
         eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][1]
         eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[g_ePlayerData[id][PDATA_LIGHT_COLOR]][2]
 
-        crystalSetModel(eCrystal)
+        switch( eCrystal[CRYSTAL_SIZE] )
+        {
+            case SIZE_NORMAL:   engfunc(EngFunc_SetModel, iEnt, g_eSettings[SETTING_MODEL_CRYSTAL_NORMAL])
+            case SIZE_LARGE:    engfunc(EngFunc_SetModel, iEnt, g_eSettings[SETTING_MODEL_CRYSTAL_LARGE])
+        }
+        set_pev(iEnt, pev_body, eCrystal[CRYSTAL_SHAPE])
     }
 
     ArrayPushArray(g_aCrystal, eCrystal)
@@ -1742,7 +1739,13 @@ stock loadDataCrystal(iItem, iFlags, iSize, iShape, iScale, iColor[3], Float:fOr
     eCrystal[CRYSTAL_DLIGHT_COLOR][1] = iColor[1]
     eCrystal[CRYSTAL_DLIGHT_COLOR][2] = iColor[2]
 
-    crystalSetModel(eCrystal)
+    switch( eCrystal[CRYSTAL_SIZE] )
+    {
+        case SIZE_NORMAL:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL_NORMAL])
+        case SIZE_LARGE:    engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL_LARGE])
+    }
+    set_pev(eCrystal[CRYSTAL_ID], pev_body, eCrystal[CRYSTAL_SHAPE])
+
     crystalSetBox(eCrystal)
     crystalSetSize(eCrystal)
     crystalSetState(eCrystal)
@@ -2054,28 +2057,6 @@ stock crystalSetState(eCrystal[CRYSTAL])
     {
         set_pev(eCrystal[CRYSTAL_ID], pev_solid, SOLID_NOT)
         crystalSelect(eCrystal, TARGET_HIDE)
-    }
-}
-
-stock crystalSetModel(eCrystal[CRYSTAL])
-{
-    if ( eCrystal[CRYSTAL_SIZE] == SIZE_NORMAL )
-    {
-        switch ( eCrystal[CRYSTAL_SHAPE] )
-        {
-            case SHAPE_1:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL1_NORMAL])
-            case SHAPE_2:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL2_NORMAL])
-            case SHAPE_3:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL3_NORMAL])
-        }
-    }
-    else if ( eCrystal[CRYSTAL_SIZE] == SIZE_LARGE )
-    {
-        switch ( eCrystal[CRYSTAL_SHAPE] )
-        {
-            case SHAPE_1:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL1_LARGE])
-            case SHAPE_2:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL2_LARGE])
-            case SHAPE_3:   engfunc(EngFunc_SetModel, eCrystal[CRYSTAL_ID], g_eSettings[SETTING_MODEL_CRYSTAL3_LARGE])
-        }
     }
 }
 
