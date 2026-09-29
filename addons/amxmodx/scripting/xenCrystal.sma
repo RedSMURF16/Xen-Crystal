@@ -2124,6 +2124,9 @@ stock crystalSound(iEnt, iSound, bool:bPlayer = true)
 
 stock crystalGet(eCrystal[CRYSTAL], iEnt)
 {
+    if ( !isCrystal(iEnt) )
+        return -1
+
     new iItem
     iItem = pev(iEnt, CRYSTAL_ARRAY_ITEM)
     if ( iItem < 0 || iItem >= g_iCrystal )
