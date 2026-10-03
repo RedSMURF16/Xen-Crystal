@@ -1804,10 +1804,10 @@ public fwdPreThink(id)
 
             crystalTrace(eCrystal, id)
         }
-        else if ( g_ePlayerData[id][PDATA_CRYSTAL_ACTION] )
-        {
-            crystalCheck(id)
-        }
+    }
+    else if ( g_ePlayerData[id][PDATA_CRYSTAL_ACTION] )
+    {
+        crystalCheck(id)
     }
 
     return HAM_IGNORED
