@@ -992,6 +992,8 @@ public menuHandlerShow(id, menu, item)
         case SHOW_CURRENT:
         {
             eCrystal[CRYSTAL_FLAGS] ^= FLAG_SHOW
+            if ( !(eCrystal[CRYSTAL_FLAGS] & FLAG_SHOW) )
+                eCrystal[CRYSTAL_FLAGS] &= ~FLAG_ACTIVE
             crystalSetState(eCrystal)
 
             client_print_color(id, id, "%L %L", id, "CRYSTAL_CHAT_TAG", id, "CRYSTAL_CHAT_SHOW_CURRENT",
@@ -1022,6 +1024,7 @@ public menuHandlerShow(id, menu, item)
             {
                 ArrayGetArray(g_aCrystal, i, eCrystal)
                 eCrystal[CRYSTAL_FLAGS] &= ~FLAG_SHOW
+                eCrystal[CRYSTAL_FLAGS] &= ~FLAG_ACTIVE
                 crystalSetState(eCrystal)
 
                 ArraySetArray(g_aCrystal, i, eCrystal)
@@ -1449,61 +1452,58 @@ public crystalTask()
         ArrayGetArray(g_aCrystal, i, eCrystal)
         bModified = false
 
-        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_SHOW )
+        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )
         {
-            if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )
+            crystalDraw(eCrystal)
+            if ( !(eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK) )
             {
-                crystalDraw(eCrystal)
-                if ( !(eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK) )
-                {
-                    crystalDistance(eCrystal, fCurrentTime)
-                    bModified = true
-                }
-
-                if ( eCrystal[CRYSTAL_NEXT_RANDOM] > 0.0
-                && fCurrentTime >= eCrystal[CRYSTAL_NEXT_RANDOM] )
-                {
-                    new iColor = random(sizeof(g_iCrystalColors))
-                    eCrystal[CRYSTAL_DLIGHT_COLOR][0] = g_iCrystalColors[iColor][0]
-                    eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[iColor][1]
-                    eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[iColor][2]
-                    eCrystal[CRYSTAL_NEXT_RANDOM] = fCurrentTime + random_float(eCrystal[CRYSTAL_COLOR_FREQUENCY][0], eCrystal[CRYSTAL_COLOR_FREQUENCY][1])
-
-                    bModified = true
-                }
-
-                if ( eCrystal[CRYSTAL_NEXT_HIDE] > 0.0
-                && fCurrentTime >= eCrystal[CRYSTAL_NEXT_HIDE] )
-                {
-                    eCrystal[CRYSTAL_FLAGS] &= ~FLAG_ACTIVE
-                    eCrystal[CRYSTAL_FLAGS] |= FLAG_PENDING
-                    eCrystal[CRYSTAL_NEXT_HIDE] = 0.0
-
-                    bModified = true
-                }
+                crystalDistance(eCrystal, fCurrentTime)
+                bModified = true
             }
-            else
+
+            if ( eCrystal[CRYSTAL_NEXT_RANDOM] > 0.0
+            && fCurrentTime >= eCrystal[CRYSTAL_NEXT_RANDOM] )
             {
-                if ( eCrystal[CRYSTAL_FLAGS] & FLAG_REVERSE
-                && eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK )
-                    crystalDraw(eCrystal)
+                new iColor = random(sizeof(g_iCrystalColors))
+                eCrystal[CRYSTAL_DLIGHT_COLOR][0] = g_iCrystalColors[iColor][0]
+                eCrystal[CRYSTAL_DLIGHT_COLOR][1] = g_iCrystalColors[iColor][1]
+                eCrystal[CRYSTAL_DLIGHT_COLOR][2] = g_iCrystalColors[iColor][2]
+                eCrystal[CRYSTAL_NEXT_RANDOM] = fCurrentTime + random_float(eCrystal[CRYSTAL_COLOR_FREQUENCY][0], eCrystal[CRYSTAL_COLOR_FREQUENCY][1])
 
-                if ( eCrystal[CRYSTAL_FLAGS] & FLAG_PENDING
-                && !(eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK) )
-                {
-                    crystalDistance(eCrystal, fCurrentTime)
-                    bModified = true
-                }
+                bModified = true
+            }
 
-                if ( eCrystal[CRYSTAL_NEXT_SHOW] > 0.0
-                && fCurrentTime >= eCrystal[CRYSTAL_NEXT_SHOW] )
-                {
-                    eCrystal[CRYSTAL_FLAGS] |= FLAG_ACTIVE
-                    eCrystal[CRYSTAL_FLAGS] &= ~FLAG_PENDING
-                    eCrystal[CRYSTAL_NEXT_SHOW] = 0.0
+            if ( eCrystal[CRYSTAL_NEXT_HIDE] > 0.0
+            && fCurrentTime >= eCrystal[CRYSTAL_NEXT_HIDE] )
+            {
+                eCrystal[CRYSTAL_FLAGS] &= ~FLAG_ACTIVE
+                eCrystal[CRYSTAL_FLAGS] |= FLAG_PENDING
+                eCrystal[CRYSTAL_NEXT_HIDE] = 0.0
 
-                    bModified = true
-                }
+                bModified = true
+            }
+        }
+        else
+        {
+            if ( eCrystal[CRYSTAL_FLAGS] & FLAG_REVERSE
+            && eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK )
+                crystalDraw(eCrystal)
+
+            if ( eCrystal[CRYSTAL_FLAGS] & FLAG_PENDING
+            && !(eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK) )
+            {
+                crystalDistance(eCrystal, fCurrentTime)
+                bModified = true
+            }
+
+            if ( eCrystal[CRYSTAL_NEXT_SHOW] > 0.0
+            && fCurrentTime >= eCrystal[CRYSTAL_NEXT_SHOW] )
+            {
+                eCrystal[CRYSTAL_FLAGS] |= FLAG_ACTIVE
+                eCrystal[CRYSTAL_FLAGS] &= ~FLAG_PENDING
+                eCrystal[CRYSTAL_NEXT_SHOW] = 0.0
+
+                bModified = true
             }
         }
 
