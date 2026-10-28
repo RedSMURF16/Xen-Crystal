@@ -51,6 +51,13 @@
 #endif
 
 #define MAX_ENT                     32
+#define CRYSTAL_CHECK               10.0
+#define CRYSTAL_OFFSET_BASE         120.0
+#define CRYSTAL_OFFSET_MIN          65.0
+#define CRYSTAL_OFFSET_MAX          900.0
+#define CRYSTAL_OFFSET_STEP         10.0
+#define CRYSTAL_GHOST_ALPHA         120
+#define CRYSTAL_ROTATION_STEP       22.5
 #define ADMIN_ACCESS                ADMIN_RCON
 #define CRYSTAL_KEY                 908070
 #define CRYSTAL_ARRAY_ITEM          pev_iuser1
@@ -154,13 +161,7 @@ enum _:MAIN_SETTINGS
     Float:SETTING_MAXS_LARGE[3],
 
     bool:SETTING_CRYSTAL_LOAD,
-    Float:SETTING_CRYSTAL_CHECK,
     Float:SETTING_CRYSTAL_TASK,
-    Float:SETTING_OFFSET_BASE,
-    Float:SETTING_OFFSET[2],
-    Float:SETTING_OFFSET_STEP,
-    SETTING_GHOST_ALPHA,
-    Float:SETTING_ROTATION_STEP,
     SETTING_CRYSTAL_LIFE
 }
 
@@ -528,20 +529,8 @@ ReadFile()
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_MAXS_LARGE], charsmax(g_eSettings[SETTING_MAXS_LARGE]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_LOAD") )
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LOAD], charsmax(g_eSettings[SETTING_CRYSTAL_LOAD]))
-                        else if ( equali(szKey, "SETTING_CRYSTAL_CHECK") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_CHECK], charsmax(g_eSettings[SETTING_CRYSTAL_CHECK]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_TASK") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_TASK], charsmax(g_eSettings[SETTING_CRYSTAL_TASK]))
-                        else if ( equali(szKey, "SETTING_OFFSET_BASE") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_BASE], charsmax(g_eSettings[SETTING_OFFSET_BASE]))
-                        else if ( equali(szKey, "SETTING_OFFSET") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET], charsmax(g_eSettings[SETTING_OFFSET]))
-                        else if ( equali(szKey, "SETTING_OFFSET_STEP") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_STEP], charsmax(g_eSettings[SETTING_OFFSET_STEP]))
-                        else if ( equali(szKey, "SETTING_GHOST_ALPHA") )
-                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_GHOST_ALPHA], charsmax(g_eSettings[SETTING_GHOST_ALPHA]))
-                        else if ( equali(szKey, "SETTING_ROTATION_STEP") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_ROTATION_STEP], charsmax(g_eSettings[SETTING_ROTATION_STEP]))
                         else if ( equali(szKey, "SETTING_CRYSTAL_LIFE") )
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_CRYSTAL_LIFE], charsmax(g_eSettings[SETTING_CRYSTAL_LIFE]))
                     }
@@ -1206,7 +1195,7 @@ public menuHandlerRotate(id, menu, item)
         case ROTATE_UP:
         {
             pev(eCrystal[CRYSTAL_ID], pev_angles, eCrystal[CRYSTAL_ANGLES])
-            eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] -= g_eSettings[SETTING_ROTATION_STEP]
+            eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] -= CRYSTAL_ROTATION_STEP
             if ( eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] < -180.0 ) eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] += 360.0
 
             set_pev(eCrystal[CRYSTAL_ID], pev_angles, eCrystal[CRYSTAL_ANGLES])
@@ -1218,7 +1207,7 @@ public menuHandlerRotate(id, menu, item)
         case ROTATE_DOWN:
         {
             pev(eCrystal[CRYSTAL_ID], pev_angles, eCrystal[CRYSTAL_ANGLES])
-            eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] += g_eSettings[SETTING_ROTATION_STEP]
+            eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] += CRYSTAL_ROTATION_STEP
             if ( eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] > 180.0 ) eCrystal[CRYSTAL_ANGLES][g_ePlayerData[id][PDATA_ROTATE_MODE]] -= 360.0
 
             set_pev(eCrystal[CRYSTAL_ID], pev_angles, eCrystal[CRYSTAL_ANGLES])
@@ -1512,7 +1501,7 @@ stock crystalCreate(id, iItem)
         EnableAction(id)
         g_ePlayerData[id][PDATA_CRYSTAL_GHOST] = eCrystal[CRYSTAL_ID]
         g_ePlayerData[id][PDATA_ROTATE_MODE] = ROTATE_MODE_YAW
-        g_ePlayerData[id][PDATA_OFFSET] = g_eSettings[SETTING_OFFSET_BASE]
+        g_ePlayerData[id][PDATA_OFFSET] = CRYSTAL_OFFSET_BASE
 
         eCrystal[CRYSTAL_SIZE] = g_ePlayerData[id][PDATA_ROTATE_SIZE]
         eCrystal[CRYSTAL_SHAPE] = g_ePlayerData[id][PDATA_ROTATE_SHAPE]
@@ -1771,14 +1760,14 @@ public fwdPreThink(id)
             {
                 if ( iButton & IN_ATTACK )
                 {
-                    g_ePlayerData[id][PDATA_OFFSET]      += g_eSettings[SETTING_OFFSET_STEP]
-                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], g_eSettings[SETTING_OFFSET][0], g_eSettings[SETTING_OFFSET][1])
+                    g_ePlayerData[id][PDATA_OFFSET]      += CRYSTAL_OFFSET_STEP
+                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], CRYSTAL_OFFSET_MIN, CRYSTAL_OFFSET_MAX)
                     g_ePlayerData[id][PDATA_NEXT_OFFSET] = fCurrentTime + 0.1
                 }
                 else if ( iButton & IN_ATTACK2 )
                 {
-                    g_ePlayerData[id][PDATA_OFFSET]      -= g_eSettings[SETTING_OFFSET_STEP]
-                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], g_eSettings[SETTING_OFFSET][0], g_eSettings[SETTING_OFFSET][1])
+                    g_ePlayerData[id][PDATA_OFFSET]      -= CRYSTAL_OFFSET_STEP
+                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], CRYSTAL_OFFSET_MIN, CRYSTAL_OFFSET_MAX)
                     g_ePlayerData[id][PDATA_NEXT_OFFSET] = fCurrentTime + 0.1
                 }
             }
@@ -1848,7 +1837,7 @@ stock crystalCheck(id)
     global_get(glb_v_forward, fVec2)
 
     iBest = -1
-    fBestDist = g_eSettings[SETTING_CRYSTAL_CHECK]
+    fBestDist = CRYSTAL_CHECK
     for ( new i = 0; i < g_iCrystal; i ++ )
     {
         ArrayGetArray(g_aCrystal, i, eCrystal)
@@ -2062,7 +2051,7 @@ stock crystalSelect(eCrystal[CRYSTAL], iAction)
     else if ( iAction == TARGET_GHOST )
     {
         iRender = kRenderTransAlpha
-        iRenderAmt = g_eSettings[SETTING_GHOST_ALPHA]
+        iRenderAmt = CRYSTAL_GHOST_ALPHA
     }
     else if ( iAction == TARGET_HIDE )
     {
@@ -2258,3 +2247,7 @@ stock LogConfigError(const iLine, const szText[], any:...)
 
     log_to_file(ERROR_FILE, "^nLine %d: %s", iLine, szError)
 }
+
+
+
+
