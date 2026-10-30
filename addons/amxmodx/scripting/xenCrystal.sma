@@ -24,9 +24,7 @@
 #include <amxmodx>
 #include <amxmisc>
 #include <cstrike>
-#include <engine>
 #include <fakemeta>
-#include <fun>
 #include <hamsandwich>
 #include <xs>
 
@@ -330,8 +328,6 @@ new Array:g_aCrystal,
     g_iCrystal, g_iCrystalConfig,
     g_iMaxPlayers
 
-new const g_iColorActive[] = { 0, 255, 0 }
-new const g_iColorInactive[] = { 255, 0, 0 }
 new g_szRotateMode[][] = {"CRYSTAL_ROTATE_PITCH", "CRYSTAL_ROTATE_YAW", "CRYSTAL_ROTATE_ROLL"}
 new g_szRotateSize[][] = {"CRYSTAL_ROTATE_NORMAL", "CRYSTAL_ROTATE_LARGE"}
 new g_szRotateShape[][] = {"CRYSTAL_ROTATE_SHAPE_1", "CRYSTAL_ROTATE_SHAPE_2", "CRYSTAL_ROTATE_SHAPE_3"}
@@ -663,10 +659,10 @@ public menuRoot(id, iMenu)
 
     menu_addblank2(iMenu)
 
-    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_ROOT_NOCLIP", id, get_user_noclip(id) ? "CRYSTAL_ON" : "CRYSTAL_OFF")
+    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_ROOT_NOCLIP", id, (pev(id, pev_movetype) == MOVETYPE_NOCLIP) ? "CRYSTAL_ON" : "CRYSTAL_OFF")
     menu_additem(iMenu, szItem)
 
-    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_ROOT_GODMODE", id, get_user_godmode(id) ? "CRYSTAL_ON" : "CRYSTAL_OFF")
+    formatex(szItem, charsmax(szItem), "%L", id, "CRYSTAL_ROOT_GODMODE", id, (pev(id, pev_takedamage) == DAMAGE_NO) ? "CRYSTAL_ON" : "CRYSTAL_OFF")
     menu_additem(iMenu, szItem)
 }
 
@@ -1730,7 +1726,7 @@ stock loadDataCrystal(iItem, iFlags, iSize, iShape, iScale, iColor[3], Float:fOr
 
 public crystalNoClip(id)
 {
-    set_user_noclip(id, !get_user_noclip(id))
+    set_pev(id, pev_movetype, pev(id, pev_movetype) == MOVETYPE_NOCLIP ? MOVETYPE_WALK : MOVETYPE_NOCLIP)
 
     crystalSound(id, SOUND_MENU_NAV)
     crystalMenu(id, MENU_ROOT)
@@ -1738,7 +1734,7 @@ public crystalNoClip(id)
 
 public crystalGodMode(id)
 {
-    set_user_godmode(id, !get_user_godmode(id))
+    set_pev(id, pev_takedamage, pev(id, pev_takedamage) == DAMAGE_NO ? DAMAGE_AIM : DAMAGE_NO)
 
     crystalSound(id, SOUND_MENU_NAV)
     crystalMenu(id, MENU_ROOT)
@@ -1857,7 +1853,7 @@ stock crystalCheck(id)
         fNearest[0] = floatclamp(fVec3[0], fMins[0], fMaxs[0])
         fNearest[1] = floatclamp(fVec3[1], fMins[1], fMaxs[1])
         fNearest[2] = floatclamp(fVec3[2], fMins[2], fMaxs[2])
-        fDist = get_distance_f(fVec3, fNearest)
+        fDist = vector_distance(fVec3, fNearest)
         if ( fDist < fBestDist )
         {
             fBestDist = fDist
@@ -2043,8 +2039,8 @@ stock crystalSelect(eCrystal[CRYSTAL], iAction)
     iRenderFx = kRenderFxNone
     if ( iAction == TARGET_SELECT )
     {
-        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )    { iRenderColor[0] = g_iColorActive[0];   iRenderColor[1] = g_iColorActive[1];     iRenderColor[2] = g_iColorActive[2]; }
-        else                                            { iRenderColor[0] = g_iColorInactive[0]; iRenderColor[1] = g_iColorInactive[1];   iRenderColor[2] = g_iColorInactive[2]; }
+        if ( eCrystal[CRYSTAL_FLAGS] & FLAG_ACTIVE )    { iRenderColor[0] = 0;   iRenderColor[1] = 255;     iRenderColor[2] = 0; }
+        else                                            { iRenderColor[0] = 255; iRenderColor[1] = 0;   iRenderColor[2] = 0; }
 
         iRender = kRenderTransColor
         iRenderFx = kRenderFxGlowShell
@@ -2066,7 +2062,7 @@ stock crystalSelect(eCrystal[CRYSTAL], iAction)
         iRenderAmt = 255
     }
 
-    set_ent_rendering(eCrystal[CRYSTAL_ID], iRenderFx, iRenderColor[0], iRenderColor[1], iRenderColor[2], iRender, iRenderAmt)
+    entitySetRendering(eCrystal[CRYSTAL_ID], iRenderFx, iRenderColor[0], iRenderColor[1], iRenderColor[2], iRender, iRenderAmt)
 }
 
 stock crystalReset()
@@ -2261,7 +2257,15 @@ stock LogConfigError(const iLine, const szText[], any:...)
 
     log_to_file(ERROR_FILE, "^nLine %d: %s", iLine, szError)
 }
+stock entitySetRendering(iEntity, iRenderFx, iRed, iGreen, iBlue, iRenderMode, iRenderAmt)
+{
+    new Float:fRenderColor[3]
+    fRenderColor[0] = float(iRed)
+    fRenderColor[1] = float(iGreen)
+    fRenderColor[2] = float(iBlue)
 
-
-
-
+    set_pev(iEntity, pev_renderfx, iRenderFx)
+    set_pev(iEntity, pev_rendercolor, fRenderColor)
+    set_pev(iEntity, pev_rendermode, iRenderMode)
+    set_pev(iEntity, pev_renderamt, float(iRenderAmt))
+}
