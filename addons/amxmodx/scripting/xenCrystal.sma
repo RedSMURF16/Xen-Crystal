@@ -23,7 +23,6 @@
 
 #include <amxmodx>
 #include <amxmisc>
-#include <cstrike>
 #include <fakemeta>
 #include <hamsandwich>
 #include <xs>
@@ -1486,7 +1485,7 @@ public crystalTask()
 
 stock crystalCreate(id, iItem)
 {
-    new iEnt = cs_create_entity("info_target")
+    new iEnt = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "info_target"))
     if ( !pev_valid(iEnt) )
         return
 
@@ -1895,8 +1894,8 @@ stock crystalDistance(eCrystal[CRYSTAL], Float:fCurrentTime)
     for ( id = 1; id <= g_iMaxPlayers; id ++ )
     {
         if ( !is_user_alive(id)
-        || ( !(eCrystal[CRYSTAL_FLAGS] & FLAG_REVERSE) && CsTeams:eCrystal[CRYSTAL_TEAM] & cs_get_user_team(id))
-        || ( eCrystal[CRYSTAL_FLAGS] & FLAG_REVERSE && !(CsTeams:eCrystal[CRYSTAL_TEAM] & cs_get_user_team(id))) )
+        || ( !(eCrystal[CRYSTAL_FLAGS] & FLAG_REVERSE) && eCrystal[CRYSTAL_TEAM] & get_user_team(id))
+        || ( eCrystal[CRYSTAL_FLAGS] & FLAG_REVERSE && !(eCrystal[CRYSTAL_TEAM] & get_user_team(id))) )
             continue
 
         pev(id, pev_origin, fOrigin)
