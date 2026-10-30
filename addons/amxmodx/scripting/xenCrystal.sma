@@ -86,11 +86,13 @@ enum
     DTYPE_INT,
     DTYPE_FLOAT,
     DTYPE_FLAGS,
-    DTYPE_ARRAY_STRING,
-    DTYPE_ARRAY_SOUND,
     DTYPE_STRING_MODEL,
     DTYPE_STRING_SOUND,
-    DTYPE_STRING_MODEL_ID
+    DTYPE_ARRAY_MESSAGE,
+    DTYPE_ARRAY_MODEL,
+    DTYPE_ARRAY_SOUND,
+    DTYPE_STRING_MODEL_ID,
+    DTYPE_ARRAY_MODEL_ID
 }
 
 enum
@@ -2159,17 +2161,6 @@ stock parseSetting(iType, szValue[], iValueLen, any:aOutput[], iOutputLength)
         {
             aOutput[0] = read_flags(szValue)
         }
-        case DTYPE_ARRAY_STRING:
-        {
-            replace_all(szValue, iValueLen, "^"", " ")
-            replace_all(szValue, iValueLen, "^^n", "^n")
-            ArrayPushString(aOutput[0], szValue)
-        }
-        case DTYPE_ARRAY_SOUND:
-        {
-            ArrayPushString(aOutput[0], szValue)
-            if ( !g_bFileWasRead ) precache_sound(szValue)
-        }
         case DTYPE_STRING_MODEL:
         {
             copy(aOutput, iOutputLength, szValue)
@@ -2180,10 +2171,33 @@ stock parseSetting(iType, szValue[], iValueLen, any:aOutput[], iOutputLength)
             copy(aOutput, iOutputLength, szValue)
             if ( !g_bFileWasRead ) precache_sound(szValue)
         }
+        case DTYPE_ARRAY_MESSAGE:
+        {
+            replace_all(szValue, iValueLen, "^"", " ")
+            replace_all(szValue, iValueLen, "^^n", "^n")
+            ArrayPushString(aOutput[0], szValue)
+        }
+        case DTYPE_ARRAY_MODEL:
+        {
+            if ( !g_bFileWasRead )
+                precache_model(szValue)
+
+            ArrayPushString(aOutput[0], szValue)
+        }
+        case DTYPE_ARRAY_SOUND:
+        {
+            ArrayPushString(aOutput[0], szValue)
+            if ( !g_bFileWasRead ) precache_sound(szValue)
+        }
         case DTYPE_STRING_MODEL_ID:
         {
             if ( !g_bFileWasRead )
                 aOutput[0] = precache_model(szValue)
+        }
+        case DTYPE_ARRAY_MODEL_ID:
+        {
+            if ( !g_bFileWasRead )
+                ArrayPushCell(aOutput[0], precache_model(szValue))
         }
     }
 }
