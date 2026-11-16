@@ -18,6 +18,10 @@ Crystals can be placed, managed and configured during gameplay with runtime cont
 - Dynamic crystal rotation and natural ghost preview placement
 - Custom crystal setups are saved per map and automatically loaded on every map start
 
+## 📋 Requirements
+- ReGameDLL
+- AMX Mod X 1.10+
+
 ## 💬 Commands
 - `say /xc` - Opens the Xen Crystal menu.
 - `say_team /xc` - Opens the Xen Crystal menu.
