@@ -1776,7 +1776,8 @@ public fwdPreThink(id)
             crystalTrace(eCrystal, id)
         }
     }
-    else if ( g_ePlayerData[id][PDATA_CRYSTAL_ACTION] )
+    else if ( g_ePlayerData[id][PDATA_CRYSTAL_ACTION]
+    && !(eCrystal[CRYSTAL_FLAGS] & FLAG_LOCK) )
     {
         crystalCheck(id)
     }
