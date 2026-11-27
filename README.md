@@ -1,7 +1,7 @@
 <h1 align="center">Xen Crystal</h1>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=lXNKts-F1LU"><img src="https://img.youtube.com/vi/lXNKts-F1LU/maxresdefault.jpg" alt="Watch on YouTube" width="600"></a>
+  <img src="images/demo.gif" alt="Xen Crystal">
 </p>
 
 ## 📝 Description
